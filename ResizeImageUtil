@@ -1,0 +1,75 @@
+package com.n
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
+import java.io.File
+
+class ResizeImageUtil {
+    fun decodeBitmapFromFile(imageFile: File, reqWidth: Int, reqHeight: Int): Bitmap {
+        val options = BitmapFactory.Options()
+        options.inJustDecodeBounds = true
+        BitmapFactory.decodeFile(imageFile.absolutePath, options)
+
+        // Calculate inSampleSize
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+
+        // Decode bitmap with inSampleSize set
+        options.inJustDecodeBounds = false
+        var scaledBitmap = BitmapFactory.decodeFile(imageFile.absolutePath, options)
+
+        scaledBitmap = modifyOrientation(scaledBitmap, imageFile.absolutePath)
+        return scaledBitmap
+    }
+
+    fun modifyOrientation(bitmap: Bitmap, imageAbsolutePath: String): Bitmap {
+        var ei =  ExifInterface(imageAbsolutePath)
+        var orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        return when(orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> rotate(bitmap, 90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> rotate(bitmap, 180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> rotate(bitmap, 270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> flip(bitmap, horizontal = true, vertical = false)
+            ExifInterface.ORIENTATION_ROTATE_90 -> flip(bitmap, horizontal = false, vertical = false)
+            else -> {
+                bitmap
+            }
+        }
+
+    }
+
+    fun rotate(bitmap: Bitmap, degrees: Float): Bitmap {
+        var matrix = Matrix()
+        matrix.postRotate(degrees)
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    fun flip(bitmap: Bitmap, horizontal: Boolean, vertical: Boolean): Bitmap {
+        var matrix = Matrix()
+        matrix.preScale(if (horizontal) -1f else 1f, if (vertical) -1f else 1f)
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        // Raw height and width of image
+        val height = options.outHeight
+        val width = options.outWidth
+
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width larger than the requested height and width.
+            while (halfHeight / inSampleSize >= reqHeight
+                && halfWidth / inSampleSize >= reqWidth
+            ) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
+}
